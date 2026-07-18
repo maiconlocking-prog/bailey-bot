@@ -1,9 +1,7 @@
 const makeWASocket = require('@whiskeysockets/baileys').default
 const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys')
 const pino = require('pino')
-const qrcode = require('qrcode-terminal')
 const fs = require('fs-extra')
-const path = require('path')
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info')
@@ -12,10 +10,45 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     logger: pino({ level: 'silent' }),
-    printQRInTerminal: true,
+    printQRInTerminal: false,
     auth: state,
-    browser: ['Bailey Bot', 'Chrome', '4.0.0'],
+    browser: ['Bailey Bot', 'Chrome', '131.0.0'],
+    pairingCode: true,
   })
+
+  // === PAIRING CODE ===
+  if (!sock.authState.creds.registered) {
+    console.log('
+\x1b[36m%s\x1b[0m', '📱 === MODO PAREAMENTO BAILEY ===')
+    console.log('\x1b[33m%s\x1b[0m', 'Digite seu número completo com código do país.')
+    console.log('\x1b[32m%s\x1b[0m', 'Exemplo: 5511999999999 (Brasil) ou 15551234567 (EUA)')
+    
+    const phoneNumber = await new Promise(resolve => {
+      process.stdout.write('\x1b[35mNúmero: \x1b[0m')
+      process.stdin.once('data', data => resolve(data.toString().trim().replace(/\s+/g, '')))
+    })
+
+    if (!phoneNumber || phoneNumber.length < 8) {
+      console.log('\x1b[31m%s\x1b[0m', '❌ Número inválido! Tente novamente.')
+      process.exit(1)
+    }
+
+    console.log('\x1b[36m%s\x1b[0m', `🔄 Gerando código para ${phoneNumber}...`)
+
+    const code = await sock.requestPairingCode(phoneNumber)
+    
+    console.log('
+\x1b[32m%s\x1b[0m', '✅ CÓDIGO DE PAREAMENTO GERADO!')
+    console.log('\x1b[37m%s\x1b[0m', `   🔥 ${code} 🔥`)
+    console.log('\x1b[33m%s\x1b[0m', '
+Abra o WhatsApp no celular:')
+    console.log('   1. Configurações → Dispositivos Vinculados')
+    console.log('   2. Vincular Dispositivo')
+    console.log('   3. "Vincular com Número de Telefone"')
+    console.log('   4. Cole o código acima')
+    console.log('\x1b[36m%s\x1b[0m', '
+Aguarde a conexão... Bailey tá cuidando do resto.')
+  }
 
   sock.ev.process(async (events) => {
     if (events['connection.update']) {
