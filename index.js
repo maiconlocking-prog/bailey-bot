@@ -18,8 +18,7 @@ async function startBot() {
 
   // === PAIRING CODE ===
   if (!sock.authState.creds.registered) {
-    console.log('
-\x1b[36m%s\x1b[0m', '📱 === MODO PAREAMENTO BAILEY ===')
+    console.log('\n\x1b[36m%s\x1b[0m', '📱 === MODO PAREAMENTO BAILEY ===')
     console.log('\x1b[33m%s\x1b[0m', 'Digite seu número completo com código do país.')
     console.log('\x1b[32m%s\x1b[0m', 'Exemplo: 5511999999999 (Brasil) ou 15551234567 (EUA)')
     
@@ -37,17 +36,14 @@ async function startBot() {
 
     const code = await sock.requestPairingCode(phoneNumber)
     
-    console.log('
-\x1b[32m%s\x1b[0m', '✅ CÓDIGO DE PAREAMENTO GERADO!')
+    console.log('\n\x1b[32m%s\x1b[0m', '✅ CÓDIGO DE PAREAMENTO GERADO!')
     console.log('\x1b[37m%s\x1b[0m', `   🔥 ${code} 🔥`)
-    console.log('\x1b[33m%s\x1b[0m', '
-Abra o WhatsApp no celular:')
+    console.log('\x1b[33m%s\x1b[0m', '\nAbra o WhatsApp no celular:')
     console.log('   1. Configurações → Dispositivos Vinculados')
     console.log('   2. Vincular Dispositivo')
     console.log('   3. "Vincular com Número de Telefone"')
     console.log('   4. Cole o código acima')
-    console.log('\x1b[36m%s\x1b[0m', '
-Aguarde a conexão... Bailey tá cuidando do resto.')
+    console.log('\x1b[36m%s\x1b[0m', '\nAguarde a conexão... Bailey tá cuidando do resto.')
   }
 
   sock.ev.process(async (events) => {
