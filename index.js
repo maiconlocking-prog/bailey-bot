@@ -1,7 +1,5 @@
-const makeWASocket = require('@whiskeysockets/baileys').default
-const { useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys')
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys')
 const pino = require('pino')
-const fs = require('fs-extra')
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info')
@@ -16,42 +14,31 @@ async function startBot() {
     pairingCode: true,
   })
 
-  sock.ev.on('connection.update', async (update) => {
+  if (!sock.authState.creds.registered) {
+    console.log('\n📱 Digite seu número completo (ex: 5511999999999):')
+    const phoneNumber = await new Promise(r => {
+      process.stdout.write('Número: ')
+      process.stdin.once('data', d => r(d.toString().trim().replace(/\s+/g, '')))
+    })
+
+    const code = await sock.requestPairingCode(phoneNumber)
+    console.log('\n✅ CÓDIGO:', code)
+    console.log('Cole no WhatsApp (Dispositivos Vinculados → Vincular com Número)')
+  }
+
+  sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect } = update
     if (connection === 'close') {
-      const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut
-      console.log('Conexão fechada. Reconectando...')
-      if (shouldReconnect) setTimeout(startBot, 5000)
+      if ((lastDisconnect.error)?.output?.statusCode !== DisconnectReason.loggedOut) {
+        console.log('Reconectando...')
+        setTimeout(startBot, 5000)
+      }
     } else if (connection === 'open') {
-      console.log('✅ Bailey Bot Conectado com Sucesso!')
+      console.log('✅ Bailey Bot Conectado!')
     }
   })
 
   sock.ev.on('creds.update', saveCreds)
-
-  // Pairing Code
-  if (!sock.authState.creds.registered) {
-    console.log('\n📱 === BAILEY PAIRING ===')
-    console.log('Digite seu número (ex: 5511999999999):')
-    
-    const phoneNumber = await new Promise(resolve => {
-      process.stdout.write('Número: ')
-      process.stdin.once('data', data => resolve(data.toString().trim().replace(/\s+/g, '')))
-    })
-
-    if (!phoneNumber || phoneNumber.length < 8) {
-      console.log('❌ Número inválido.')
-      process.exit(1)
-    }
-
-    try {
-      const code = await sock.requestPairingCode(phoneNumber)
-      console.log('\n✅ CÓDIGO: ' + code)
-      console.log('\nCole no WhatsApp (Dispositivos Vinculados → Vincular com Número)')
-    } catch (e) {
-      console.log('Erro ao gerar código:', e.message)
-    }
-  }
 
   sock.ev.on('messages.upsert', async ({ messages }) => {
     for (const msg of messages) {
@@ -59,12 +46,12 @@ async function startBot() {
       const from = msg.key.remoteJid
       const text = msg.message.conversation || msg.message.extendedTextMessage?.text || ''
       if (text.toLowerCase() === '!ping') {
-        await sock.sendMessage(from, { text: '🏓 Pong!' })
+        await sock.sendMessage(from, { text: '🏓 Pong! Bailey online!' })
       }
     }
   })
 
-  console.log('🚀 Iniciando...')
+  console.log('🚀 Iniciando Bailey Bot...')
 }
 
-startBot().catch(err => console.error('Erro fatal:', err))
+startBot().catch(err => console.error('Erro:', err))
