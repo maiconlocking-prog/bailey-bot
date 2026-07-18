@@ -16,9 +16,23 @@ async function startBot() {
     pairingCode: true,
   })
 
+  sock.ev.on('connection.update', async (update) => {
+    const { connection, lastDisconnect } = update
+    if (connection === 'close') {
+      const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut
+      console.log('Conexão fechada. Reconectando...')
+      if (shouldReconnect) setTimeout(startBot, 5000)
+    } else if (connection === 'open') {
+      console.log('✅ Bailey Bot Conectado com Sucesso!')
+    }
+  })
+
+  sock.ev.on('creds.update', saveCreds)
+
+  // Pairing Code
   if (!sock.authState.creds.registered) {
-    console.log('\n📱 === BAILEY PAIRING MODE ===')
-    console.log('Digite seu número completo (ex: 5511999999999)')
+    console.log('\n📱 === BAILEY PAIRING ===')
+    console.log('Digite seu número (ex: 5511999999999):')
     
     const phoneNumber = await new Promise(resolve => {
       process.stdout.write('Número: ')
@@ -26,49 +40,31 @@ async function startBot() {
     })
 
     if (!phoneNumber || phoneNumber.length < 8) {
-      console.log('❌ Número inválido!')
+      console.log('❌ Número inválido.')
       process.exit(1)
     }
 
-    console.log(`Gerando código para ${phoneNumber}...`)
-    const code = await sock.requestPairingCode(phoneNumber)
-    
-    console.log('\n✅ CÓDIGO GERADO:')
-    console.log(`   🔥 ${code} 🔥`)
-    console.log('\n1. Abra WhatsApp → Dispositivos Vinculados')
-    console.log('2. Vincular Dispositivo → Vincular com Número de Telefone')
-    console.log('3. Cole o código acima\n')
+    try {
+      const code = await sock.requestPairingCode(phoneNumber)
+      console.log('\n✅ CÓDIGO: ' + code)
+      console.log('\nCole no WhatsApp (Dispositivos Vinculados → Vincular com Número)')
+    } catch (e) {
+      console.log('Erro ao gerar código:', e.message)
+    }
   }
 
-  sock.ev.process(async (events) => {
-    if (events['connection.update']) {
-      const { connection, lastDisconnect } = events['connection.update']
-      if (connection === 'close') {
-        const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut
-        console.log('Conexão fechada. Reconectando...')
-        if (shouldReconnect) startBot()
-      } else if (connection === 'open') {
-        console.log('✅ Bailey Bot Conectado com Sucesso!')
-      }
-    }
-
-    if (events['creds.update']) await saveCreds()
-
-    if (events['messages.upsert']) {
-      const { messages } = events['messages.upsert']
-      for (const msg of messages) {
-        if (!msg.message) continue
-        const from = msg.key.remoteJid
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || ''
-
-        if (text.toLowerCase() === '!ping') {
-          await sock.sendMessage(from, { text: '🏓 Pong! Bailey tá online!' })
-        }
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    for (const msg of messages) {
+      if (!msg.message) continue
+      const from = msg.key.remoteJid
+      const text = msg.message.conversation || msg.message.extendedTextMessage?.text || ''
+      if (text.toLowerCase() === '!ping') {
+        await sock.sendMessage(from, { text: '🏓 Pong!' })
       }
     }
   })
 
-  console.log('🚀 Iniciando Bailey Bot...')
+  console.log('🚀 Iniciando...')
 }
 
-startBot().catch(err => console.error('Erro:', err))
+startBot().catch(err => console.error('Erro fatal:', err))
